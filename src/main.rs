@@ -1,7 +1,12 @@
 mod commands;
 
 use clap::{Parser, Subcommand};
-use commands::{convert::ConvertArgs, reconcile_inspect::ReconcileInspectArgs};
+use commands::{
+    convert::ConvertArgs,
+    reconcile_apply::ReconcileApplyArgs,
+    reconcile_inspect::ReconcileInspectArgs,
+    reconcile_review::ReconcileReviewArgs,
+};
 
 #[derive(Parser, Debug)]
 #[command(name = "artisan-cli")]
@@ -17,6 +22,10 @@ enum Command {
     Convert(ConvertArgs),
     /// Inspect parsed candidates and inferred type buckets for reconciliation planning.
     ReconcileInspect(ReconcileInspectArgs),
+    /// Build or update a manual reconciliation review state file.
+    ReconcileReview(ReconcileReviewArgs),
+    /// Apply accepted review decisions into core mapping/link records.
+    ReconcileApply(ReconcileApplyArgs),
 }
 
 fn main() {
@@ -25,6 +34,8 @@ fn main() {
     let result = match cli.command {
         Command::Convert(args) => commands::convert::run(args),
         Command::ReconcileInspect(args) => commands::reconcile_inspect::run(args),
+        Command::ReconcileReview(args) => commands::reconcile_review::run(args),
+        Command::ReconcileApply(args) => commands::reconcile_apply::run(args),
     };
 
     if let Err(err) = result {
