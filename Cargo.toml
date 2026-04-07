@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 artisan-core = { path = "../../libs/artisan-core" }
+artisan-herolab = { path = "../../libs/artisan-herolab" }
 artisan-pcgen = { path = "../../libs/artisan-pcgen" }
 artisan-toml = { path = "../../libs/artisan-toml" }
 clap = { version = "4.5", features = ["derive"] }
