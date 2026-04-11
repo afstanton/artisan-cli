@@ -5,9 +5,9 @@ use std::{
 };
 
 use artisan_core::{
-    reconcile::{MatchCandidate, MatchQuery, ReconciliationStore, SubjectKind},
     CanonicalId, CoreCatalog, InMemoryReconciliationStore, Reconciler, ReconciliationPolicy,
     ResolutionOutcome, SourceRecord,
+    reconcile::{MatchCandidate, MatchQuery, ReconciliationStore, SubjectKind},
 };
 use artisan_pcgen::{ParsedEntityCandidate, PcgenLoader};
 use artisan_toml::parse_catalog;
@@ -134,7 +134,11 @@ pub fn run(args: ReconcileReviewArgs) -> Result<(), String> {
         existing.as_ref(),
     );
 
-    let pending = next_state.items.iter().filter(|i| i.decision.is_none()).count();
+    let pending = next_state
+        .items
+        .iter()
+        .filter(|i| i.decision.is_none())
+        .count();
     let accepted = next_state
         .items
         .iter()
@@ -152,8 +156,12 @@ pub fn run(args: ReconcileReviewArgs) -> Result<(), String> {
 
     let encoded = serde_json::to_string_pretty(&next_state)
         .map_err(|e| format!("failed to encode review state: {e}"))?;
-    fs::write(&args.state_file, encoded)
-        .map_err(|e| format!("failed to write review state {}: {e}", args.state_file.display()))?;
+    fs::write(&args.state_file, encoded).map_err(|e| {
+        format!(
+            "failed to write review state {}: {e}",
+            args.state_file.display()
+        )
+    })?;
 
     println!("reconcile review state updated");
     println!("  file: {}", args.state_file.display());
@@ -376,7 +384,9 @@ fn suggest_matches_via_core_reconciler(
                 reason: "matched by core reconciler".to_string(),
             }]
         }
-        Some(ResolutionOutcome::Created { .. }) | Some(ResolutionOutcome::Conflict { .. }) | None => {
+        Some(ResolutionOutcome::Created { .. })
+        | Some(ResolutionOutcome::Conflict { .. })
+        | None => {
             let query = entity_match_query(candidate);
             let store = InMemoryReconciliationStore::new(catalog.clone());
             store.search_candidates(SubjectKind::Entity, query)
@@ -400,8 +410,8 @@ fn suggest_matches_via_core_reconciler(
             let name = entity
                 .map(|e| e.name.clone())
                 .unwrap_or_else(|| "<unknown>".to_string());
-            let entity_type_key = entity
-                .and_then(|e| index.entity_type_keys.get(&e.entity_type).cloned());
+            let entity_type_key =
+                entity.and_then(|e| index.entity_type_keys.get(&e.entity_type).cloned());
 
             let source_matched = entity.is_some_and(|e| {
                 requested_source.as_ref().is_some_and(|wanted_source| {
@@ -456,7 +466,10 @@ fn entity_match_query(candidate: &ParsedEntityCandidate) -> MatchQuery {
     }
 }
 
-fn entity_source_titles(entity: &artisan_core::Entity, index: &CatalogMatchIndex<'_>) -> Vec<String> {
+fn entity_source_titles(
+    entity: &artisan_core::Entity,
+    index: &CatalogMatchIndex<'_>,
+) -> Vec<String> {
     let mut titles = Vec::new();
 
     if let Some(page) = entity
@@ -478,7 +491,10 @@ fn entity_source_titles(entity: &artisan_core::Entity, index: &CatalogMatchIndex
     titles
 }
 
-fn entity_game_systems(entity: &artisan_core::Entity, index: &CatalogMatchIndex<'_>) -> Vec<String> {
+fn entity_game_systems(
+    entity: &artisan_core::Entity,
+    index: &CatalogMatchIndex<'_>,
+) -> Vec<String> {
     let mut systems = Vec::new();
 
     if let Some(mode) = entity

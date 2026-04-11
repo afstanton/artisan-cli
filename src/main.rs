@@ -2,11 +2,8 @@ mod commands;
 
 use clap::{Parser, Subcommand};
 use commands::{
-    convert::ConvertArgs,
-    import_herolab::ImportHerolabArgs,
-    import_pcgen::ImportPcgenArgs,
-    reconcile_apply::ReconcileApplyArgs,
-    reconcile_inspect::ReconcileInspectArgs,
+    convert::ConvertArgs, import_herolab::ImportHerolabArgs, import_pcgen::ImportPcgenArgs,
+    reconcile_apply::ReconcileApplyArgs, reconcile_inspect::ReconcileInspectArgs,
     reconcile_review::ReconcileReviewArgs,
 };
 

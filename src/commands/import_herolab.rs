@@ -90,8 +90,12 @@ struct HookStatus {
 }
 
 pub fn run(args: ImportHerolabArgs) -> Result<(), String> {
-    let files = collect_herolab_files(&args.input)
-        .map_err(|e| format!("failed to collect input files {}: {e}", args.input.display()))?;
+    let files = collect_herolab_files(&args.input).map_err(|e| {
+        format!(
+            "failed to collect input files {}: {e}",
+            args.input.display()
+        )
+    })?;
 
     let mut by_extension: BTreeMap<String, usize> = BTreeMap::new();
     let mut files_parsed = 0usize;
@@ -291,7 +295,10 @@ fn print_report(title: &str, report: &ImportHerolabReport) {
     println!("  publishers discovered: {}", report.publishers_discovered);
     println!("  sources discovered: {}", report.sources_discovered);
     println!("  citations discovered: {}", report.citations_discovered);
-    println!("  entity types discovered: {}", report.entity_types_discovered);
+    println!(
+        "  entity types discovered: {}",
+        report.entity_types_discovered
+    );
     println!(
         "  reconcile publishers (matched/created/ambiguous/conflict): {}/{}/{}/{}",
         report.reconcile.publisher_outcomes.matched,
@@ -344,8 +351,8 @@ fn parse_herolab_file(path: &Path, ext: &str) -> Result<artisan_herolab::ParsedC
                 .map_err(|e| format!("failed to parse user XML: {e}"))
         }
         "por" | "stock" | "zip" => {
-            let bytes = fs::read(path)
-                .map_err(|e| format!("failed to read {}: {e}", path.display()))?;
+            let bytes =
+                fs::read(path).map_err(|e| format!("failed to read {}: {e}", path.display()))?;
             let manifest = HerolabLoader::inspect_portfolio_archive(&bytes)
                 .map_err(|e| format!("failed to inspect portfolio archive: {e}"))?;
             Ok(manifest.catalog)
@@ -403,7 +410,10 @@ fn collect_herolab_files_recursive(path: &Path, out: &mut Vec<PathBuf>) -> std::
 }
 
 fn is_herolab_file(path: &Path) -> bool {
-    matches!(extension_of(path).as_str(), "user" | "por" | "stock" | "xml" | "zip")
+    matches!(
+        extension_of(path).as_str(),
+        "user" | "por" | "stock" | "xml" | "zip"
+    )
 }
 
 fn extension_of(path: &Path) -> String {

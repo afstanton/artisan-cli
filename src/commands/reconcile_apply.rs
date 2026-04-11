@@ -36,8 +36,11 @@ pub fn run(args: ReconcileApplyArgs) -> Result<(), String> {
         .iter()
         .map(|l| format!("{}:{}", l.canonical_id.0, l.external_id.value))
         .collect();
-    let mut existing_mapping: BTreeSet<String> =
-        catalog.mapping_records.iter().map(|m| m.id.clone()).collect();
+    let mut existing_mapping: BTreeSet<String> = catalog
+        .mapping_records
+        .iter()
+        .map(|m| m.id.clone())
+        .collect();
 
     let mut applied = 0usize;
     let mut skipped = 0usize;
@@ -78,12 +81,10 @@ pub fn run(args: ReconcileApplyArgs) -> Result<(), String> {
         if !existing_mapping.contains(&map_id) {
             catalog.mapping_records.push(MappingRecord {
                 id: map_id.clone(),
-                description: decision.note.clone().or_else(|| {
-                    Some(format!(
-                        "manual reconciliation for {}",
-                        item.candidate_key
-                    ))
-                }),
+                description: decision
+                    .note
+                    .clone()
+                    .or_else(|| Some(format!("manual reconciliation for {}", item.candidate_key))),
                 source_entity_type: None,
                 target_entity_type: None,
                 payload: serde_json::json!({
@@ -113,10 +114,14 @@ pub fn run(args: ReconcileApplyArgs) -> Result<(), String> {
         return Ok(());
     }
 
-    let encoded = dump_catalog(&catalog)
-        .map_err(|e| format!("failed to encode core catalog toml: {e}"))?;
-    fs::write(&args.to_core_toml, encoded)
-        .map_err(|e| format!("failed to write output {}: {e}", args.to_core_toml.display()))?;
+    let encoded =
+        dump_catalog(&catalog).map_err(|e| format!("failed to encode core catalog toml: {e}"))?;
+    fs::write(&args.to_core_toml, encoded).map_err(|e| {
+        format!(
+            "failed to write output {}: {e}",
+            args.to_core_toml.display()
+        )
+    })?;
 
     println!("reconcile apply complete");
     println!("  review file: {}", args.review_state.display());
@@ -138,7 +143,10 @@ fn candidate_external_value(candidate_key: &str) -> Option<&str> {
     candidate_key.strip_prefix("pcgen:")
 }
 
-fn find_entity_id_by_external_value(catalog: &CoreCatalog, external_value: &str) -> Option<artisan_core::CanonicalId> {
+fn find_entity_id_by_external_value(
+    catalog: &CoreCatalog,
+    external_value: &str,
+) -> Option<artisan_core::CanonicalId> {
     catalog
         .entities
         .iter()

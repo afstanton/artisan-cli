@@ -6,7 +6,10 @@ use std::{
 
 use artisan_core::{
     CoreCatalog,
-    reconcile::{ImportCandidate, InMemoryReconciliationStore, Reconciler, ReconciliationPolicy, ResolutionOutcome},
+    reconcile::{
+        ImportCandidate, InMemoryReconciliationStore, Reconciler, ReconciliationPolicy,
+        ResolutionOutcome,
+    },
 };
 use artisan_pcgen::{ParsedEntityCandidate, parse_file};
 use artisan_toml::{dump_catalog, parse_catalog};
@@ -88,8 +91,12 @@ struct HookStatus {
 }
 
 pub fn run(args: ImportPcgenArgs) -> Result<(), String> {
-    let files = collect_pcgen_files(&args.input)
-        .map_err(|e| format!("failed to collect input files {}: {e}", args.input.display()))?;
+    let files = collect_pcgen_files(&args.input).map_err(|e| {
+        format!(
+            "failed to collect input files {}: {e}",
+            args.input.display()
+        )
+    })?;
 
     let mut by_extension: BTreeMap<String, usize> = BTreeMap::new();
     let mut files_parsed = 0usize;
@@ -224,8 +231,12 @@ pub fn run(args: ImportPcgenArgs) -> Result<(), String> {
         let reconciled = reconciler.store.into_catalog();
         let toml_text = dump_catalog(&reconciled)
             .map_err(|e| format!("failed to encode reconciled catalog: {e}"))?;
-        fs::write(out_path, toml_text)
-            .map_err(|e| format!("failed to write reconciled catalog {}: {e}", out_path.display()))?;
+        fs::write(out_path, toml_text).map_err(|e| {
+            format!(
+                "failed to write reconciled catalog {}: {e}",
+                out_path.display()
+            )
+        })?;
         format!("written to {}", out_path.display())
     } else {
         "skipped (no --out-core-toml)".to_string()
@@ -268,7 +279,8 @@ pub fn run(args: ImportPcgenArgs) -> Result<(), String> {
             },
             inference: HookStatus {
                 status: "not_implemented".to_string(),
-                next_step: "run inference passes for unresolved type entities and unresolved links".to_string(),
+                next_step: "run inference passes for unresolved type entities and unresolved links"
+                    .to_string(),
             },
         },
     };
@@ -283,8 +295,14 @@ pub fn run(args: ImportPcgenArgs) -> Result<(), String> {
         println!("  publishers discovered: {}", report.publishers_discovered);
         println!("  sources discovered: {}", report.sources_discovered);
         println!("  citations discovered: {}", report.citations_discovered);
-        println!("  entity types discovered: {}", report.entity_types_discovered);
-        println!("  unresolved type entities: {}", report.unresolved_type_entities);
+        println!(
+            "  entity types discovered: {}",
+            report.entity_types_discovered
+        );
+        println!(
+            "  unresolved type entities: {}",
+            report.unresolved_type_entities
+        );
         println!(
             "  reconcile publishers (matched/created/ambiguous/conflict): {}/{}/{}/{}",
             report.reconcile.publisher_outcomes.matched,
@@ -340,8 +358,14 @@ pub fn run(args: ImportPcgenArgs) -> Result<(), String> {
     println!("  publishers discovered: {}", report.publishers_discovered);
     println!("  sources discovered: {}", report.sources_discovered);
     println!("  citations discovered: {}", report.citations_discovered);
-    println!("  entity types discovered: {}", report.entity_types_discovered);
-    println!("  unresolved type entities: {}", report.unresolved_type_entities);
+    println!(
+        "  entity types discovered: {}",
+        report.entity_types_discovered
+    );
+    println!(
+        "  unresolved type entities: {}",
+        report.unresolved_type_entities
+    );
     println!(
         "  reconcile publishers (matched/created/ambiguous/conflict): {}/{}/{}/{}",
         report.reconcile.publisher_outcomes.matched,
