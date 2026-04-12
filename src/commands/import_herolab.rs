@@ -344,9 +344,10 @@ fn parse_herolab_file(path: &Path, ext: &str) -> Result<artisan_herolab::ParsedC
         .and_then(|n| n.to_str())
         .unwrap_or("herolab");
     match ext {
-        "user" | "xml" => {
-            let text = fs::read_to_string(path)
-                .map_err(|e| format!("failed to read {}: {e}", path.display()))?;
+        "user" | "xml" | "1st" | "dat" => {
+            let bytes =
+                fs::read(path).map_err(|e| format!("failed to read {}: {e}", path.display()))?;
+            let text = String::from_utf8_lossy(&bytes).to_string();
             HerolabLoader::parse_user_catalog(&text, source_name)
                 .map_err(|e| format!("failed to parse user XML: {e}"))
         }
@@ -412,7 +413,7 @@ fn collect_herolab_files_recursive(path: &Path, out: &mut Vec<PathBuf>) -> std::
 fn is_herolab_file(path: &Path) -> bool {
     matches!(
         extension_of(path).as_str(),
-        "user" | "por" | "stock" | "xml" | "zip"
+        "user" | "por" | "stock" | "xml" | "zip" | "1st" | "dat"
     )
 }
 

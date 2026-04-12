@@ -11,7 +11,7 @@ use artisan_core::{
         ResolutionOutcome,
     },
 };
-use artisan_pcgen::{ParsedEntityCandidate, parse_file};
+use artisan_pcgen::{ParsedEntityCandidate, parse_text_to_catalog};
 use artisan_toml::{dump_catalog, parse_catalog};
 use serde::Serialize;
 
@@ -118,41 +118,36 @@ pub fn run(args: ImportPcgenArgs) -> Result<(), String> {
         let ext = extension_of(file);
         *by_extension.entry(ext.clone()).or_insert(0) += 1;
 
-        match parse_file(file) {
-            Ok(parsed) => {
-                files_parsed += 1;
-                entities_parsed += parsed.entities.len();
-                publishers_discovered += parsed.publishers.len();
-                sources_discovered += parsed.sources.len();
-                citations_discovered += parsed.citations.len();
-                for entity_type in parsed.entity_types.clone() {
-                    entity_type_keys.insert(entity_type.key.clone());
-                    imported_entity_types.push(entity_type);
-                }
-                imported_publishers.extend(parsed.publishers.clone());
-                imported_sources.extend(parsed.sources.clone());
-                imported_citations.extend(parsed.citations.clone());
-                for entity in parsed.entities {
-                    let entity_type_key = entity
-                        .attributes
-                        .get("pcgen_entity_type_key")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("pcgen:type:unresolved")
-                        .to_string();
-                    if entity_type_key == "pcgen:type:unresolved" {
-                        unresolved_type_entities += 1;
-                    }
-                    imported_candidates.push(ParsedEntityCandidate {
-                        entity,
-                        entity_type_key,
-                        source_hints: Vec::new(),
-                    });
-                }
+        let raw = fs::read_to_string(file)
+            .map_err(|e| format!("failed to read {}: {e}", file.display()))?;
+        let parsed = parse_text_to_catalog(&raw, &file.display().to_string(), &ext);
+        files_parsed += 1;
+        entities_parsed += parsed.entities.len();
+        publishers_discovered += parsed.publishers.len();
+        sources_discovered += parsed.sources.len();
+        citations_discovered += parsed.citations.len();
+        for entity_type in parsed.entity_types.clone() {
+            entity_type_keys.insert(entity_type.key.clone());
+            imported_entity_types.push(entity_type);
+        }
+        imported_publishers.extend(parsed.publishers.clone());
+        imported_sources.extend(parsed.sources.clone());
+        imported_citations.extend(parsed.citations.clone());
+        for entity in parsed.entities {
+            let entity_type_key = entity
+                .attributes
+                .get("pcgen_entity_type_key")
+                .and_then(|v| v.as_str())
+                .unwrap_or("pcgen:type:unresolved")
+                .to_string();
+            if entity_type_key == "pcgen:type:unresolved" {
+                unresolved_type_entities += 1;
             }
-            Err(err) => {
-                files_failed += 1;
-                failures.push(format!("{}: {}", file.display(), err));
-            }
+            imported_candidates.push(ParsedEntityCandidate {
+                entity,
+                entity_type_key,
+                source_hints: Vec::new(),
+            });
         }
     }
 
