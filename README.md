@@ -75,6 +75,14 @@ reconciliation work without checking those paths into the repository.
 For example, a local Pathfinder 1e overlap manifest can drive both
 imports and review generation from the same curated slice.
 
+The growing canonical reconciliation catalog should also live there.
+By default, the CLI now uses:
+
+`code/rust/apps/artisan-cli/local/reconciliation/canonical_catalog.toml`
+
+as its local persisted core catalog when you do not provide explicit
+`--from-core-toml` or `--out-core-toml` paths.
+
 ## Example PF1 Workflow
 
 Import a curated Pathfinder 1e PCGen slice:
@@ -100,6 +108,13 @@ PCGen corpus:
 cargo run -p artisan-cli -- reconcile-review \
   --corpus-manifest code/rust/apps/artisan-cli/local/pf1e_reconciliation_corpus.toml \
   --corpus-group "Monster Focus Skeletons" \
-  --from-core-toml /tmp/pf1_core.toml \
   --state-file /tmp/pf1_review.json
+```
+
+Apply accepted review decisions back into the same local canonical
+catalog:
+
+```bash
+cargo run -p artisan-cli -- reconcile-apply \
+  --review-state /tmp/pf1_review.json
 ```

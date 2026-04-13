@@ -16,6 +16,9 @@ use artisan_toml::{dump_catalog, parse_catalog};
 use serde::Serialize;
 
 use super::corpus::{CorpusSide, load_corpus_paths};
+use super::local_workspace::{
+    ensure_parent_dir, resolve_existing_core_catalog_path, resolve_output_core_catalog_path,
+};
 
 #[derive(clap::Args, Debug)]
 pub struct ImportPcgenArgs {
@@ -170,7 +173,8 @@ pub fn run(args: ImportPcgenArgs) -> Result<(), String> {
         }
     }
 
-    let base_catalog = if let Some(path) = &args.from_core_toml {
+    let base_catalog_path = resolve_existing_core_catalog_path(args.from_core_toml.as_ref());
+    let base_catalog = if let Some(path) = &base_catalog_path {
         let raw = fs::read_to_string(path)
             .map_err(|e| format!("failed to read base core toml {}: {e}", path.display()))?;
         parse_catalog(&raw).map_err(|e| format!("failed to parse base core toml: {e}"))?
@@ -241,20 +245,18 @@ pub fn run(args: ImportPcgenArgs) -> Result<(), String> {
     let citation_outcomes = reconciler.reconcile_citations(citation_imports);
 
     // Persist reconciled catalog if requested
-    let persist_status = if let Some(out_path) = &args.out_core_toml {
-        let reconciled = reconciler.store.into_catalog();
-        let toml_text = dump_catalog(&reconciled)
-            .map_err(|e| format!("failed to encode reconciled catalog: {e}"))?;
-        fs::write(out_path, toml_text).map_err(|e| {
-            format!(
-                "failed to write reconciled catalog {}: {e}",
-                out_path.display()
-            )
-        })?;
-        format!("written to {}", out_path.display())
-    } else {
-        "skipped (no --out-core-toml)".to_string()
-    };
+    let out_path = resolve_output_core_catalog_path(args.out_core_toml.as_ref());
+    let reconciled = reconciler.store.into_catalog();
+    let toml_text = dump_catalog(&reconciled)
+        .map_err(|e| format!("failed to encode reconciled catalog: {e}"))?;
+    ensure_parent_dir(&out_path)?;
+    fs::write(&out_path, toml_text).map_err(|e| {
+        format!(
+            "failed to write reconciled catalog {}: {e}",
+            out_path.display()
+        )
+    })?;
+    let persist_status = format!("written to {}", out_path.display());
 
     let report = ImportPcgenReport {
         input: args

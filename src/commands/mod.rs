@@ -2,6 +2,7 @@ pub mod convert;
 pub mod corpus;
 pub mod import_herolab;
 pub mod import_pcgen;
+pub mod local_workspace;
 pub mod reconcile_apply;
 pub mod reconcile_inspect;
 pub mod reconcile_review;

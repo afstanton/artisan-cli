@@ -3,6 +3,9 @@ use std::{collections::BTreeSet, fs, path::PathBuf};
 use artisan_core::{CanonicalId, CoreCatalog, ExternalId, FormatId, IdentityLink, MappingRecord};
 use artisan_toml::{dump_catalog, parse_catalog};
 
+use super::local_workspace::{
+    ensure_parent_dir, resolve_existing_core_catalog_path, resolve_output_core_catalog_path,
+};
 use super::reconcile_review::{ReviewItem, ReviewState};
 
 #[derive(clap::Args, Debug)]
@@ -11,7 +14,7 @@ pub struct ReconcileApplyArgs {
     pub review_state: PathBuf,
 
     #[arg(long, value_name = "OUT_CORE_TOML_FILE")]
-    pub to_core_toml: PathBuf,
+    pub to_core_toml: Option<PathBuf>,
 
     #[arg(long, value_name = "IN_CORE_TOML_FILE")]
     pub from_core_toml: Option<PathBuf>,
@@ -23,7 +26,8 @@ pub struct ReconcileApplyArgs {
 pub fn run(args: ReconcileApplyArgs) -> Result<(), String> {
     let state = load_review_state(&args.review_state)?;
 
-    let mut catalog = if let Some(path) = &args.from_core_toml {
+    let input_catalog_path = resolve_existing_core_catalog_path(args.from_core_toml.as_ref());
+    let mut catalog = if let Some(path) = &input_catalog_path {
         let raw = fs::read_to_string(path)
             .map_err(|e| format!("failed to read base core toml {}: {e}", path.display()))?;
         parse_catalog(&raw).map_err(|e| format!("failed to parse base core toml: {e}"))?
@@ -128,21 +132,24 @@ pub fn run(args: ReconcileApplyArgs) -> Result<(), String> {
         applied += 1;
     }
 
+    let output_catalog_path = resolve_output_core_catalog_path(args.to_core_toml.as_ref());
+
     if args.dry_run {
         println!("reconcile apply (dry-run)");
         println!("  review file: {}", args.review_state.display());
         println!("  would apply: {}", applied);
         println!("  skipped: {}", skipped);
-        println!("  output: {}", args.to_core_toml.display());
+        println!("  output: {}", output_catalog_path.display());
         return Ok(());
     }
 
     let encoded =
         dump_catalog(&catalog).map_err(|e| format!("failed to encode core catalog toml: {e}"))?;
-    fs::write(&args.to_core_toml, encoded).map_err(|e| {
+    ensure_parent_dir(&output_catalog_path)?;
+    fs::write(&output_catalog_path, encoded).map_err(|e| {
         format!(
             "failed to write output {}: {e}",
-            args.to_core_toml.display()
+            output_catalog_path.display()
         )
     })?;
 
@@ -150,7 +157,7 @@ pub fn run(args: ReconcileApplyArgs) -> Result<(), String> {
     println!("  review file: {}", args.review_state.display());
     println!("  applied: {}", applied);
     println!("  skipped: {}", skipped);
-    println!("  output: {}", args.to_core_toml.display());
+    println!("  output: {}", output_catalog_path.display());
 
     Ok(())
 }
@@ -500,7 +507,7 @@ mod tests {
 
         run(ReconcileApplyArgs {
             review_state: review_path,
-            to_core_toml: output_catalog_path.clone(),
+            to_core_toml: Some(output_catalog_path.clone()),
             from_core_toml: Some(input_catalog_path),
             dry_run: false,
         })

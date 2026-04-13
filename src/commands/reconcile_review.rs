@@ -14,6 +14,7 @@ use artisan_toml::parse_catalog;
 use serde::{Deserialize, Serialize};
 
 use super::corpus::{CorpusSide, load_corpus_paths};
+use super::local_workspace::resolve_existing_core_catalog_path;
 
 #[derive(clap::Args, Debug)]
 pub struct ReconcileReviewArgs {
@@ -95,7 +96,8 @@ pub struct ReviewState {
 pub fn run(args: ReconcileReviewArgs) -> Result<(), String> {
     let (candidates, source_label) = load_review_candidates(&args)?;
 
-    let catalog = if let Some(path) = &args.from_core_toml {
+    let catalog_path = resolve_existing_core_catalog_path(args.from_core_toml.as_ref());
+    let catalog = if let Some(path) = &catalog_path {
         let raw = fs::read_to_string(path)
             .map_err(|e| format!("failed to read core catalog {}: {e}", path.display()))?;
         Some(parse_catalog(&raw).map_err(|e| format!("failed to parse core catalog: {e}"))?)
