@@ -15,10 +15,18 @@ use artisan_pcgen::{ParsedEntityCandidate, parse_text_to_catalog};
 use artisan_toml::{dump_catalog, parse_catalog};
 use serde::Serialize;
 
+use super::corpus::{CorpusSide, load_corpus_paths};
+
 #[derive(clap::Args, Debug)]
 pub struct ImportPcgenArgs {
     #[arg(long, value_name = "PCGEN_FILE_OR_DIR")]
-    pub input: PathBuf,
+    pub input: Option<PathBuf>,
+
+    #[arg(long, value_name = "CORPUS_MANIFEST_TOML")]
+    pub corpus_manifest: Option<PathBuf>,
+
+    #[arg(long = "corpus-group", value_name = "GROUP_NAME")]
+    pub corpus_groups: Vec<String>,
 
     #[arg(long, value_name = "IN_CORE_TOML_FILE")]
     pub from_core_toml: Option<PathBuf>,
@@ -91,16 +99,27 @@ struct HookStatus {
 }
 
 pub fn run(args: ImportPcgenArgs) -> Result<(), String> {
-    let files = collect_pcgen_files(&args.input).map_err(|e| {
-        format!(
-            "failed to collect input files {}: {e}",
-            args.input.display()
-        )
-    })?;
+    let files = if let Some(manifest_path) = &args.corpus_manifest {
+        if args.input.is_some() {
+            return Err(
+                "use either --input <file-or-dir> or --corpus-manifest <file>, not both"
+                    .to_string(),
+            );
+        }
+        load_corpus_paths(manifest_path, CorpusSide::Pcgen, &args.corpus_groups)?
+    } else {
+        let Some(input) = &args.input else {
+            return Err(
+                "missing input: use --input <file-or-dir> or --corpus-manifest <file>".to_string(),
+            );
+        };
+        collect_pcgen_files(input)
+            .map_err(|e| format!("failed to collect input files {}: {e}", input.display()))?
+    };
 
     let mut by_extension: BTreeMap<String, usize> = BTreeMap::new();
     let mut files_parsed = 0usize;
-    let mut files_failed = 0usize;
+    let files_failed = 0usize;
     let mut entity_type_keys = std::collections::BTreeSet::new();
     let mut entities_parsed = 0usize;
     let mut publishers_discovered = 0usize;
@@ -111,7 +130,7 @@ pub fn run(args: ImportPcgenArgs) -> Result<(), String> {
     let mut imported_sources = Vec::new();
     let mut imported_citations = Vec::new();
     let mut imported_candidates: Vec<ParsedEntityCandidate> = Vec::new();
-    let mut failures = Vec::new();
+    let failures = Vec::new();
     let mut unresolved_type_entities = 0usize;
 
     for file in &files {
@@ -238,7 +257,16 @@ pub fn run(args: ImportPcgenArgs) -> Result<(), String> {
     };
 
     let report = ImportPcgenReport {
-        input: args.input.display().to_string(),
+        input: args
+            .input
+            .as_ref()
+            .map(|path| path.display().to_string())
+            .or_else(|| {
+                args.corpus_manifest
+                    .as_ref()
+                    .map(|path| path.display().to_string())
+            })
+            .unwrap_or_else(|| "<unknown>".to_string()),
         files_scanned: files.len(),
         files_parsed,
         files_failed,

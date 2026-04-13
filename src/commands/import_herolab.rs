@@ -15,10 +15,18 @@ use artisan_herolab::HerolabLoader;
 use artisan_toml::{dump_catalog, parse_catalog};
 use serde::Serialize;
 
+use super::corpus::{CorpusSide, load_corpus_paths};
+
 #[derive(clap::Args, Debug)]
 pub struct ImportHerolabArgs {
     #[arg(long, value_name = "HEROLAB_FILE_OR_DIR")]
-    pub input: PathBuf,
+    pub input: Option<PathBuf>,
+
+    #[arg(long, value_name = "CORPUS_MANIFEST_TOML")]
+    pub corpus_manifest: Option<PathBuf>,
+
+    #[arg(long = "corpus-group", value_name = "GROUP_NAME")]
+    pub corpus_groups: Vec<String>,
 
     #[arg(long, value_name = "IN_CORE_TOML_FILE")]
     pub from_core_toml: Option<PathBuf>,
@@ -90,12 +98,23 @@ struct HookStatus {
 }
 
 pub fn run(args: ImportHerolabArgs) -> Result<(), String> {
-    let files = collect_herolab_files(&args.input).map_err(|e| {
-        format!(
-            "failed to collect input files {}: {e}",
-            args.input.display()
-        )
-    })?;
+    let files = if let Some(manifest_path) = &args.corpus_manifest {
+        if args.input.is_some() {
+            return Err(
+                "use either --input <file-or-dir> or --corpus-manifest <file>, not both"
+                    .to_string(),
+            );
+        }
+        load_corpus_paths(manifest_path, CorpusSide::Herolab, &args.corpus_groups)?
+    } else {
+        let Some(input) = &args.input else {
+            return Err(
+                "missing input: use --input <file-or-dir> or --corpus-manifest <file>".to_string(),
+            );
+        };
+        collect_herolab_files(input)
+            .map_err(|e| format!("failed to collect input files {}: {e}", input.display()))?
+    };
 
     let mut by_extension: BTreeMap<String, usize> = BTreeMap::new();
     let mut files_parsed = 0usize;
@@ -227,7 +246,16 @@ pub fn run(args: ImportHerolabArgs) -> Result<(), String> {
     };
 
     let report = ImportHerolabReport {
-        input: args.input.display().to_string(),
+        input: args
+            .input
+            .as_ref()
+            .map(|path| path.display().to_string())
+            .or_else(|| {
+                args.corpus_manifest
+                    .as_ref()
+                    .map(|path| path.display().to_string())
+            })
+            .unwrap_or_else(|| "<unknown>".to_string()),
         files_scanned: files.len(),
         files_parsed,
         files_failed,

@@ -1,0 +1,151 @@
+# Local-only Pathfinder 1e reconciliation corpus.
+# This file is intentionally kept out of git via the repo .gitignore.
+
+title = "Pathfinder 1e first-pass reconciliation corpus"
+game_system = "pathfinder"
+created = "2026-04-13"
+notes = """
+This is a pragmatic first-pass corpus for trying real cross-format
+reconciliation between PCGen and HeroLab.
+
+The groups below are not all equally strong:
+- Monster Focus Skeletons is an exact title-level overlap.
+- Pathfinder Unchained is a strong Paizo product-family overlap.
+- Ultimate Psionics and Path of War are strong publisher/product-family overlaps.
+
+This manifest is meant to be edited locally as we learn more.
+"""
+
+[[group]]
+name = "Monster Focus Skeletons"
+kind = "exact_title_overlap"
+confidence = "high"
+notes = "Best exact-match Pathfinder 1e title overlap found in both corpora."
+pcgen_paths = [
+  "externals/PCGen/pcgen/data/pathfinder/minotaur_games/monster_focus_skeletons/monster_focus_skeletons.pcc",
+  "externals/PCGen/pcgen/data/pathfinder/minotaur_games/monster_focus_skeletons/mfs_abilitycategories.lst",
+  "externals/PCGen/pcgen/data/pathfinder/minotaur_games/monster_focus_skeletons/mfs_abilities.lst",
+  "externals/PCGen/pcgen/data/pathfinder/minotaur_games/monster_focus_skeletons/mfs_equip.lst",
+  "externals/PCGen/pcgen/data/pathfinder/minotaur_games/monster_focus_skeletons/mfs_feats.lst",
+  "externals/PCGen/pcgen/data/pathfinder/minotaur_games/monster_focus_skeletons/mfs_spells.lst",
+  "externals/PCGen/pcgen/data/pathfinder/minotaur_games/monster_focus_skeletons/mfs_templates.lst",
+]
+herolab_paths = [
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_Source_210 - Minotaur Games.1st",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_MinotaurGames - Monster Focus Skeletons.user",
+]
+
+[[group]]
+name = "Pathfinder Unchained"
+kind = "product_family_overlap"
+confidence = "high"
+notes = "Strong Paizo PF1 overlap, though HeroLab content is split across several files."
+pcgen_paths = [
+  "externals/PCGen/pcgen/data/pathfinder/paizo/roleplaying_game/pathfinder_unchained/_pathfinder_unchained.pcc",
+  "externals/PCGen/pcgen/data/pathfinder/paizo/roleplaying_game/pathfinder_unchained/pu_abilitycategories.lst",
+  "externals/PCGen/pcgen/data/pathfinder/paizo/roleplaying_game/pathfinder_unchained/pu_abilities_class.lst",
+  "externals/PCGen/pcgen/data/pathfinder/paizo/roleplaying_game/pathfinder_unchained/pu_abilities_race.lst",
+  "externals/PCGen/pcgen/data/pathfinder/paizo/roleplaying_game/pathfinder_unchained/pu_companionmods.lst",
+  "externals/PCGen/pcgen/data/pathfinder/paizo/roleplaying_game/pathfinder_unchained/pu_datacontrols.lst",
+  "externals/PCGen/pcgen/data/pathfinder/paizo/roleplaying_game/pathfinder_unchained/pu_equip.lst",
+  "externals/PCGen/pcgen/data/pathfinder/paizo/roleplaying_game/pathfinder_unchained/pu_equipmods.lst",
+  "externals/PCGen/pcgen/data/pathfinder/paizo/roleplaying_game/pathfinder_unchained/pu_feats.lst",
+  "externals/PCGen/pcgen/data/pathfinder/paizo/roleplaying_game/pathfinder_unchained/pu_skills.lst",
+  "externals/PCGen/pcgen/data/pathfinder/paizo/roleplaying_game/pathfinder_unchained/pu_spells.lst",
+  "externals/PCGen/pcgen/data/pathfinder/paizo/roleplaying_game/pathfinder_unchained/pu_templates.lst",
+]
+herolab_paths = [
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_Source_400 - Unchained Pack.1st",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_Source_410 - Unchained Child Sources.1st",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_PFUnchainedPack - Helper Things.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_PFUnchainedPack - Procedures.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_PFUnchainedPack_Domains.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_PFUnchainedPack_Archetypes - Barbarian.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_PFUnchainedPack_Archetypes - Bloodrager.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_PFUnchainedPack_Archetypes - Monk.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_PFUnchainedPack_Archetypes - Ninja.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_PFUnchainedPack_Archetypes - Rogue.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_PFUnchainedPack_Archetypes - Warpriest.user",
+]
+
+[[group]]
+name = "Ultimate Psionics"
+kind = "product_family_overlap"
+confidence = "medium"
+notes = "Strong Dreamscarred Press overlap, but HeroLab splits classes/powers/tags across multiple files."
+pcgen_paths = [
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/ultimate_psionics/ultimate_psionics.pcc",
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/ultimate_psionics/up_abilitycategories.lst",
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/ultimate_psionics/up_abilities.lst",
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/ultimate_psionics/up_abilities_class.lst",
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/ultimate_psionics/up_abilities_race.lst",
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/ultimate_psionics/up_classes.lst",
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/ultimate_psionics/up_equipmods.lst",
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/ultimate_psionics/up_equipment.lst",
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/ultimate_psionics/up_feats.lst",
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/ultimate_psionics/up_languages.lst",
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/ultimate_psionics/up_powers.lst",
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/ultimate_psionics/up_races.lst",
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/ultimate_psionics/up_skills.lst",
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/ultimate_psionics/up_templates.lst",
+]
+herolab_paths = [
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_Source_210 - Dreamscarred Press.1st",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_UltimatePsionics - Adjustments.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_UltimatePsionics - Classes.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_UltimatePsionics - Classes (Aegis).user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_UltimatePsionics - Classes (Dread).user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_UltimatePsionics - Classes (Marksman).user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_UltimatePsionics - Classes (Psion).user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_UltimatePsionics - Classes (Psychic Warrior).user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_UltimatePsionics - Classes (Soulknife).user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_UltimatePsionics - Classes (Wilder).user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_UltimatePsionics - Equipment.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_UltimatePsionics - Feats.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_UltimatePsionics - Helper Things.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_UltimatePsionics - Languages.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_UltimatePsionics - Powers.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_UltimatePsionics - Procedures.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_UltimatePsionics - Races Monster.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_UltimatePsionics - Races Player.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_UltimatePsionics - Skills.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_UltimatePsionics - Tags.1st",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_UltimatePsionics - Weapons.user",
+]
+
+[[group]]
+name = "Path of War"
+kind = "product_family_overlap"
+confidence = "medium"
+notes = "Strong Dreamscarred Press overlap. HeroLab includes both core Path of War and expansion files."
+pcgen_paths = [
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/path_of_war/_path_of_war.pcc",
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/path_of_war/pow_abilities.lst",
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/path_of_war/pow_abilitycategories.lst",
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/path_of_war/pow_classes.lst",
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/path_of_war/pow_equipment.lst",
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/path_of_war/pow_feats.lst",
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/path_of_war/pow_maneuvers.lst",
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/path_of_war/pow_skills.lst",
+  "externals/PCGen/pcgen/data/pathfinder/dreamscarred_press/path_of_war/pow_templates.lst",
+]
+herolab_paths = [
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_Source_210 - Dreamscarred Press.1st",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_PathOfWar - Adjustments.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_PathOfWar - Archetypes.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_PathOfWar - Classes.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_PathOfWar - Equipment.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_PathOfWar - Feats.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_PathOfWar - Helper Things.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_PathOfWar - Manuevers.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_PathOfWar - Martial Traditions.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_PathOfWar - Procedures.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_PathOfWar - Skills.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_PathOfWar - Tags.1st",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_PathOfWarEx - Archetypes.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_PathOfWarEx - Classes.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_PathOfWarEx - Feats.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_PathOfWarEx - Helper Things.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_PathOfWarEx - Maneuvers.user",
+  "externals/shadowchemosh/HL-Pack-Pathfinder/COM_3PPPack_PathOfWarEx - Tags.1st",
+]

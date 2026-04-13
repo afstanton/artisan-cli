@@ -1,7 +1,7 @@
 use std::{
     collections::{BTreeMap, HashMap},
     fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use artisan_core::{
@@ -9,17 +9,25 @@ use artisan_core::{
     ResolutionOutcome, SourceRecord,
     reconcile::{MatchCandidate, MatchQuery, ReconciliationStore, SubjectKind},
 };
-use artisan_pcgen::{ParsedEntityCandidate, PcgenLoader};
+use artisan_pcgen::{ParsedEntityCandidate, PcgenLoader, parse_text_to_catalog};
 use artisan_toml::parse_catalog;
 use serde::{Deserialize, Serialize};
+
+use super::corpus::{CorpusSide, load_corpus_paths};
 
 #[derive(clap::Args, Debug)]
 pub struct ReconcileReviewArgs {
     #[arg(long, value_name = "PCGEN_LST_FILE")]
-    pub pcgen_lst: PathBuf,
+    pub pcgen_lst: Option<PathBuf>,
 
     #[arg(long, value_name = "PCGEN_PCC_FILE")]
     pub pcgen_pcc: Option<PathBuf>,
+
+    #[arg(long, value_name = "CORPUS_MANIFEST_TOML")]
+    pub corpus_manifest: Option<PathBuf>,
+
+    #[arg(long = "corpus-group", value_name = "GROUP_NAME")]
+    pub corpus_groups: Vec<String>,
 
     #[arg(long, value_name = "IN_CORE_TOML_FILE")]
     pub from_core_toml: Option<PathBuf>,
@@ -40,6 +48,10 @@ pub struct ReconcileReviewArgs {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviewDecision {
     pub mapped_entity_type_key: Option<String>,
+    #[serde(default)]
+    pub matched_canonical_id: Option<String>,
+    #[serde(default)]
+    pub matched_entity_type_canonical_id: Option<String>,
     pub note: Option<String>,
     pub accepted: bool,
 }
@@ -81,35 +93,7 @@ pub struct ReviewState {
 }
 
 pub fn run(args: ReconcileReviewArgs) -> Result<(), String> {
-    let input = fs::read_to_string(&args.pcgen_lst)
-        .map_err(|e| format!("failed to read input {}: {e}", args.pcgen_lst.display()))?;
-
-    let (game_system_hint, source_title_hint) = if let Some(path) = &args.pcgen_pcc {
-        let pcc_input = fs::read_to_string(path)
-            .map_err(|e| format!("failed to read pcc input {}: {e}", path.display()))?;
-        let campaign = PcgenLoader::parse_pcc(&pcc_input).map_err(|e| e.to_string())?;
-        (
-            campaign
-                .metadata
-                .get("GAMEMODE")
-                .and_then(|v| v.first())
-                .cloned(),
-            campaign
-                .metadata
-                .get("CAMPAIGN")
-                .and_then(|v| v.first())
-                .cloned(),
-        )
-    } else {
-        (None, None)
-    };
-
-    let candidates = PcgenLoader::parse_entity_candidates_with_context(
-        &input,
-        game_system_hint.as_deref(),
-        source_title_hint.as_deref(),
-    )
-    .map_err(|e| e.to_string())?;
+    let (candidates, source_label) = load_review_candidates(&args)?;
 
     let catalog = if let Some(path) = &args.from_core_toml {
         let raw = fs::read_to_string(path)
@@ -126,7 +110,7 @@ pub fn run(args: ReconcileReviewArgs) -> Result<(), String> {
     };
 
     let next_state = merge_state(
-        &args.pcgen_lst,
+        &PathBuf::from(&source_label),
         &candidates,
         catalog.as_ref(),
         args.max_suggestions,
@@ -170,6 +154,133 @@ pub fn run(args: ReconcileReviewArgs) -> Result<(), String> {
     println!("  accepted: {}", accepted);
 
     Ok(())
+}
+
+fn load_review_candidates(
+    args: &ReconcileReviewArgs,
+) -> Result<(Vec<ParsedEntityCandidate>, String), String> {
+    if let Some(manifest_path) = &args.corpus_manifest {
+        if args.pcgen_lst.is_some() {
+            return Err(
+                "use either --pcgen-lst <file> or --corpus-manifest <file>, not both".to_string(),
+            );
+        }
+        if args.pcgen_pcc.is_some() {
+            return Err(
+                "--pcgen-pcc is not supported together with --corpus-manifest; include .pcc files in the corpus group instead"
+                    .to_string(),
+            );
+        }
+
+        let paths = load_corpus_paths(manifest_path, CorpusSide::Pcgen, &args.corpus_groups)?;
+        let (game_system_hint, source_title_hint) = aggregate_pcc_hints(&paths)?;
+        let mut candidates = Vec::new();
+        for path in paths {
+            if extension_of(&path).eq_ignore_ascii_case("pcc") {
+                continue;
+            }
+            let raw = fs::read_to_string(&path)
+                .map_err(|e| format!("failed to read input {}: {e}", path.display()))?;
+            let source_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("pcgen");
+            let ext = extension_of(&path);
+            let parsed = parse_text_to_catalog(&raw, source_name, &ext);
+            for entity in parsed.entities {
+                let entity_type_key = entity
+                    .attributes
+                    .get("pcgen_entity_type_key")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("pcgen:type:unresolved")
+                    .to_string();
+                let mut source_hints = Vec::new();
+                if source_title_hint.is_some() || game_system_hint.is_some() {
+                    source_hints.push(artisan_core::reconcile::SourceHint {
+                        title: source_title_hint.clone(),
+                        publisher: None,
+                        game_system: game_system_hint.clone(),
+                    });
+                }
+                candidates.push(ParsedEntityCandidate {
+                    entity,
+                    entity_type_key,
+                    source_hints,
+                });
+            }
+        }
+        return Ok((candidates, manifest_path.display().to_string()));
+    }
+
+    let Some(pcgen_lst) = &args.pcgen_lst else {
+        return Err(
+            "missing input: use --pcgen-lst <file> or --corpus-manifest <file>".to_string(),
+        );
+    };
+    let input = fs::read_to_string(pcgen_lst)
+        .map_err(|e| format!("failed to read input {}: {e}", pcgen_lst.display()))?;
+
+    let (game_system_hint, source_title_hint) = if let Some(path) = &args.pcgen_pcc {
+        let pcc_input = fs::read_to_string(path)
+            .map_err(|e| format!("failed to read pcc input {}: {e}", path.display()))?;
+        let campaign = PcgenLoader::parse_pcc(&pcc_input).map_err(|e| e.to_string())?;
+        (
+            campaign
+                .metadata
+                .get("GAMEMODE")
+                .and_then(|v| v.first())
+                .cloned(),
+            campaign
+                .metadata
+                .get("CAMPAIGN")
+                .and_then(|v| v.first())
+                .cloned(),
+        )
+    } else {
+        (None, None)
+    };
+
+    let candidates = PcgenLoader::parse_entity_candidates_with_context(
+        &input,
+        game_system_hint.as_deref(),
+        source_title_hint.as_deref(),
+    )
+    .map_err(|e| e.to_string())?;
+    Ok((candidates, pcgen_lst.display().to_string()))
+}
+
+fn aggregate_pcc_hints(paths: &[PathBuf]) -> Result<(Option<String>, Option<String>), String> {
+    let mut game_system_hint = None;
+    let mut source_title_hint = None;
+
+    for path in paths {
+        if !extension_of(path).eq_ignore_ascii_case("pcc") {
+            continue;
+        }
+        let pcc_input = fs::read_to_string(path)
+            .map_err(|e| format!("failed to read pcc input {}: {e}", path.display()))?;
+        let campaign = PcgenLoader::parse_pcc(&pcc_input).map_err(|e| e.to_string())?;
+        if game_system_hint.is_none() {
+            game_system_hint = campaign
+                .metadata
+                .get("GAMEMODE")
+                .and_then(|v| v.first())
+                .cloned();
+        }
+        if source_title_hint.is_none() {
+            source_title_hint = campaign
+                .metadata
+                .get("CAMPAIGN")
+                .and_then(|v| v.first())
+                .cloned();
+        }
+    }
+
+    Ok((game_system_hint, source_title_hint))
+}
+
+fn extension_of(path: &Path) -> String {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .map(|s| s.to_ascii_lowercase())
+        .unwrap_or_else(|| "unknown".to_string())
 }
 
 fn load_state(path: &PathBuf) -> Result<ReviewState, String> {

@@ -1,4 +1,5 @@
 pub mod convert;
+pub mod corpus;
 pub mod import_herolab;
 pub mod import_pcgen;
 pub mod reconcile_apply;
