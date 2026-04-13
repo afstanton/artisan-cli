@@ -111,6 +111,24 @@ cargo run -p artisan-cli -- reconcile-review \
   --state-file /tmp/pf1_review.json
 ```
 
+Walk that review state interactively, one candidate at a time, while
+saving progress after each decision:
+
+```bash
+cargo run -p artisan-cli -- reconcile-review \
+  --corpus-manifest code/rust/apps/artisan-cli/local/pf1e_reconciliation_corpus.toml \
+  --corpus-group "Monster Focus Skeletons" \
+  --state-file /tmp/pf1_review.json \
+  --interactive
+```
+
+Interactive review commands:
+
+- `1`, `2`, `3`, ... accept that ranked suggestion
+- `n` reject the current candidate
+- `s` skip for now
+- `q` save and quit immediately
+
 Apply accepted review decisions back into the same local canonical
 catalog:
 

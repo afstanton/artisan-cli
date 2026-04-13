@@ -1,6 +1,7 @@
 use std::{
     collections::{BTreeMap, HashMap},
     fs,
+    io::{self, Write},
     path::{Path, PathBuf},
 };
 
@@ -41,6 +42,9 @@ pub struct ReconcileReviewArgs {
 
     #[arg(long, value_name = "REVIEW_STATE_JSON")]
     pub state_file: PathBuf,
+
+    #[arg(long, default_value_t = false)]
+    pub interactive: bool,
 
     #[arg(long, default_value_t = false)]
     pub dry_run: bool,
@@ -140,14 +144,7 @@ pub fn run(args: ReconcileReviewArgs) -> Result<(), String> {
         return Ok(());
     }
 
-    let encoded = serde_json::to_string_pretty(&next_state)
-        .map_err(|e| format!("failed to encode review state: {e}"))?;
-    fs::write(&args.state_file, encoded).map_err(|e| {
-        format!(
-            "failed to write review state {}: {e}",
-            args.state_file.display()
-        )
-    })?;
+    write_state(&args.state_file, &next_state)?;
 
     println!("reconcile review state updated");
     println!("  file: {}", args.state_file.display());
@@ -155,7 +152,182 @@ pub fn run(args: ReconcileReviewArgs) -> Result<(), String> {
     println!("  pending: {}", pending);
     println!("  accepted: {}", accepted);
 
+    if args.interactive {
+        run_interactive_review(&args.state_file, next_state)?;
+    }
+
     Ok(())
+}
+
+fn write_state(path: &Path, state: &ReviewState) -> Result<(), String> {
+    let encoded = serde_json::to_string_pretty(state)
+        .map_err(|e| format!("failed to encode review state: {e}"))?;
+    fs::write(path, encoded)
+        .map_err(|e| format!("failed to write review state {}: {e}", path.display()))
+}
+
+fn run_interactive_review(path: &Path, mut state: ReviewState) -> Result<(), String> {
+    println!();
+    println!("interactive reconciliation review");
+    println!("  commands: [number] accept suggestion, n reject, s skip, q save and quit");
+
+    let mut stdin = String::new();
+    loop {
+        let Some(index) = state.items.iter().position(|item| item.decision.is_none()) else {
+            println!("all review items have decisions");
+            break;
+        };
+
+        let total = state.items.len();
+        let item = &state.items[index];
+        print_review_item(index + 1, total, item);
+
+        print!("choice> ");
+        io::stdout()
+            .flush()
+            .map_err(|e| format!("failed to flush stdout: {e}"))?;
+        stdin.clear();
+        io::stdin()
+            .read_line(&mut stdin)
+            .map_err(|e| format!("failed to read interactive input: {e}"))?;
+
+        match parse_review_action(&stdin, item.match_candidates.len())? {
+            ReviewAction::AcceptSuggestion(suggestion_index) => {
+                let suggestion = item.match_candidates[suggestion_index].clone();
+                let item_name = item.name.clone();
+                state.items[index].decision = Some(ReviewDecision {
+                    mapped_entity_type_key: suggestion.entity_type_key,
+                    matched_canonical_id: Some(suggestion.canonical_id),
+                    matched_entity_type_canonical_id: None,
+                    note: Some(format!(
+                        "accepted interactive suggestion {}",
+                        suggestion_index + 1
+                    )),
+                    accepted: true,
+                });
+                write_state(path, &state)?;
+                println!(
+                    "saved accepted match for {} -> {}",
+                    item_name, suggestion.name
+                );
+            }
+            ReviewAction::Reject => {
+                state.items[index].decision = Some(ReviewDecision {
+                    mapped_entity_type_key: None,
+                    matched_canonical_id: None,
+                    matched_entity_type_canonical_id: None,
+                    note: Some("rejected in interactive review".to_string()),
+                    accepted: false,
+                });
+                write_state(path, &state)?;
+                println!("saved rejection for {}", state.items[index].name);
+            }
+            ReviewAction::Skip => {
+                println!("skipped {}", state.items[index].name);
+            }
+            ReviewAction::Quit => {
+                write_state(path, &state)?;
+                println!("saved progress and quit interactive review");
+                break;
+            }
+        }
+        println!();
+    }
+
+    let pending = state
+        .items
+        .iter()
+        .filter(|item| item.decision.is_none())
+        .count();
+    let accepted = state
+        .items
+        .iter()
+        .filter(|item| item.decision.as_ref().is_some_and(|d| d.accepted))
+        .count();
+    println!("review summary");
+    println!("  file: {}", path.display());
+    println!("  total: {}", state.items.len());
+    println!("  pending: {}", pending);
+    println!("  accepted: {}", accepted);
+    Ok(())
+}
+
+fn print_review_item(position: usize, total: usize, item: &ReviewItem) {
+    println!("[{position}/{total}] {}", item.name);
+    println!("  candidate: {}", item.candidate_key);
+    println!("  inferred type: {}", item.inferred_entity_type_key);
+    println!("  suggested type: {}", item.suggested_entity_type_key);
+    if let Some(game_system) = &item.game_system_hint {
+        println!("  game system: {game_system}");
+    }
+    if let Some(source) = &item.source_hint {
+        println!("  source: {source}");
+    }
+
+    if item.match_candidates.is_empty() {
+        println!("  suggestions: none");
+        println!("  available commands: n reject, s skip, q quit");
+        return;
+    }
+
+    println!("  suggestions:");
+    for (index, candidate) in item.match_candidates.iter().enumerate() {
+        println!(
+            "    {}. {} [{}] confidence {:.2}{}{}",
+            index + 1,
+            candidate.name,
+            candidate
+                .entity_type_key
+                .as_deref()
+                .unwrap_or("unknown-type"),
+            candidate.confidence,
+            if candidate.source_matched {
+                " source-match"
+            } else {
+                ""
+            },
+            if candidate.game_system_matched {
+                " game-match"
+            } else {
+                ""
+            }
+        );
+        println!("       {}", candidate.reason);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ReviewAction {
+    AcceptSuggestion(usize),
+    Reject,
+    Skip,
+    Quit,
+}
+
+fn parse_review_action(input: &str, suggestion_count: usize) -> Result<ReviewAction, String> {
+    let trimmed = input.trim();
+    if trimmed.is_empty()
+        || trimmed.eq_ignore_ascii_case("s")
+        || trimmed.eq_ignore_ascii_case("skip")
+    {
+        return Ok(ReviewAction::Skip);
+    }
+    if trimmed.eq_ignore_ascii_case("q") || trimmed.eq_ignore_ascii_case("quit") {
+        return Ok(ReviewAction::Quit);
+    }
+    if trimmed.eq_ignore_ascii_case("n") || trimmed.eq_ignore_ascii_case("reject") {
+        return Ok(ReviewAction::Reject);
+    }
+    if let Ok(index) = trimmed.parse::<usize>() {
+        if index == 0 || index > suggestion_count {
+            return Err(format!(
+                "suggestion choice must be between 1 and {}",
+                suggestion_count.max(1)
+            ));
+        }
+        return Ok(ReviewAction::AcceptSuggestion(index - 1));
+    }
+    Err("enter a suggestion number, `n`, `s`, or `q`".to_string())
 }
 
 fn load_review_candidates(
@@ -719,4 +891,29 @@ fn candidate_game_system_hint(candidate: &ParsedEntityCandidate) -> Option<Strin
         .source_hints
         .iter()
         .find_map(|hint| hint.game_system.clone())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ReviewAction, parse_review_action};
+
+    #[test]
+    fn parse_review_action_accepts_ranked_suggestion() {
+        assert_eq!(
+            parse_review_action("2", 3).unwrap(),
+            ReviewAction::AcceptSuggestion(1)
+        );
+    }
+
+    #[test]
+    fn parse_review_action_supports_reject_skip_and_quit() {
+        assert_eq!(parse_review_action("n", 0).unwrap(), ReviewAction::Reject);
+        assert_eq!(parse_review_action("s", 0).unwrap(), ReviewAction::Skip);
+        assert_eq!(parse_review_action("q", 0).unwrap(), ReviewAction::Quit);
+    }
+
+    #[test]
+    fn parse_review_action_rejects_out_of_range_selection() {
+        assert!(parse_review_action("3", 2).is_err());
+    }
 }
