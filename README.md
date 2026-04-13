@@ -125,6 +125,9 @@ cargo run -p artisan-cli -- reconcile-review \
 Interactive review commands:
 
 - `1`, `2`, `3`, ... accept that ranked suggestion
+- `m 2 herolab.pathfinder.feat keep PF1 type` accepts suggestion `2` but forces the chosen canonical type key
+- `t herolab.pathfinder.feat type-only` records a type-level mapping when no entity-level match is ready
+- `a same name but source mismatch` marks the candidate as ambiguous and saves the note
 - `n` reject the current candidate
 - `s` skip for now
 - `q` save and quit immediately

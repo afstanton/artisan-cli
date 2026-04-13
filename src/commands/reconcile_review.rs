@@ -169,7 +169,12 @@ fn write_state(path: &Path, state: &ReviewState) -> Result<(), String> {
 fn run_interactive_review(path: &Path, mut state: ReviewState) -> Result<(), String> {
     println!();
     println!("interactive reconciliation review");
-    println!("  commands: [number] accept suggestion, n reject, s skip, q save and quit");
+    println!("  commands:");
+    println!("    [number] accept suggestion");
+    println!("    m [number] [type-key] [note...] accept suggestion with explicit type key");
+    println!("    t [type-key] [note...] accept a type-only mapping");
+    println!("    a [note...] mark ambiguous and leave a note");
+    println!("    n reject, s skip, q save and quit");
 
     let mut stdin = String::new();
     loop {
@@ -210,6 +215,64 @@ fn run_interactive_review(path: &Path, mut state: ReviewState) -> Result<(), Str
                     "saved accepted match for {} -> {}",
                     item_name, suggestion.name
                 );
+            }
+            ReviewAction::AcceptSuggestionWithType {
+                suggestion_index,
+                mapped_entity_type_key,
+                note,
+            } => {
+                let suggestion = item.match_candidates[suggestion_index].clone();
+                let item_name = item.name.clone();
+                state.items[index].decision = Some(ReviewDecision {
+                    mapped_entity_type_key: Some(mapped_entity_type_key.clone()),
+                    matched_canonical_id: Some(suggestion.canonical_id),
+                    matched_entity_type_canonical_id: None,
+                    note: Some(note.unwrap_or_else(|| {
+                        format!(
+                            "accepted interactive suggestion {} with explicit type {}",
+                            suggestion_index + 1,
+                            mapped_entity_type_key
+                        )
+                    })),
+                    accepted: true,
+                });
+                write_state(path, &state)?;
+                println!(
+                    "saved accepted match for {} -> {} with type {}",
+                    item_name, suggestion.name, mapped_entity_type_key
+                );
+            }
+            ReviewAction::TypeOnly {
+                mapped_entity_type_key,
+                note,
+            } => {
+                let item_name = item.name.clone();
+                state.items[index].decision = Some(ReviewDecision {
+                    mapped_entity_type_key: Some(mapped_entity_type_key.clone()),
+                    matched_canonical_id: None,
+                    matched_entity_type_canonical_id: None,
+                    note: Some(note.unwrap_or_else(|| {
+                        format!("accepted type-only mapping to {}", mapped_entity_type_key)
+                    })),
+                    accepted: true,
+                });
+                write_state(path, &state)?;
+                println!(
+                    "saved type-only mapping for {} -> {}",
+                    item_name, mapped_entity_type_key
+                );
+            }
+            ReviewAction::Ambiguous { note } => {
+                let item_name = item.name.clone();
+                state.items[index].decision = Some(ReviewDecision {
+                    mapped_entity_type_key: None,
+                    matched_canonical_id: None,
+                    matched_entity_type_canonical_id: None,
+                    note: Some(note),
+                    accepted: false,
+                });
+                write_state(path, &state)?;
+                println!("saved ambiguity note for {}", item_name);
             }
             ReviewAction::Reject => {
                 state.items[index].decision = Some(ReviewDecision {
@@ -266,7 +329,9 @@ fn print_review_item(position: usize, total: usize, item: &ReviewItem) {
 
     if item.match_candidates.is_empty() {
         println!("  suggestions: none");
-        println!("  available commands: n reject, s skip, q quit");
+        println!(
+            "  available commands: t [type-key] [note...], a [note...], n reject, s skip, q quit"
+        );
         return;
     }
 
@@ -296,9 +361,21 @@ fn print_review_item(position: usize, total: usize, item: &ReviewItem) {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum ReviewAction {
     AcceptSuggestion(usize),
+    AcceptSuggestionWithType {
+        suggestion_index: usize,
+        mapped_entity_type_key: String,
+        note: Option<String>,
+    },
+    TypeOnly {
+        mapped_entity_type_key: String,
+        note: Option<String>,
+    },
+    Ambiguous {
+        note: String,
+    },
     Reject,
     Skip,
     Quit,
@@ -318,6 +395,71 @@ fn parse_review_action(input: &str, suggestion_count: usize) -> Result<ReviewAct
     if trimmed.eq_ignore_ascii_case("n") || trimmed.eq_ignore_ascii_case("reject") {
         return Ok(ReviewAction::Reject);
     }
+    if let Some(rest) = trimmed
+        .strip_prefix("a ")
+        .or_else(|| trimmed.strip_prefix("ambiguous "))
+    {
+        let note = rest.trim();
+        if note.is_empty() {
+            return Err("ambiguous notes need text after `a`".to_string());
+        }
+        return Ok(ReviewAction::Ambiguous {
+            note: note.to_string(),
+        });
+    }
+    if trimmed.eq_ignore_ascii_case("a") || trimmed.eq_ignore_ascii_case("ambiguous") {
+        return Err("ambiguous notes need text after `a`".to_string());
+    }
+    if let Some(rest) = trimmed
+        .strip_prefix("t ")
+        .or_else(|| trimmed.strip_prefix("type "))
+    {
+        let mut parts = rest.split_whitespace();
+        let Some(type_key) = parts.next() else {
+            return Err("type-only mapping needs a type key after `t`".to_string());
+        };
+        let note = rest
+            .strip_prefix(type_key)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(ToString::to_string);
+        return Ok(ReviewAction::TypeOnly {
+            mapped_entity_type_key: type_key.to_string(),
+            note,
+        });
+    }
+    if let Some(rest) = trimmed
+        .strip_prefix("m ")
+        .or_else(|| trimmed.strip_prefix("map "))
+    {
+        let mut parts = rest.split_whitespace();
+        let Some(index_str) = parts.next() else {
+            return Err("mapped accept needs a suggestion number after `m`".to_string());
+        };
+        let suggestion_index = index_str
+            .parse::<usize>()
+            .map_err(|_| "mapped accept needs a numeric suggestion index".to_string())?;
+        if suggestion_index == 0 || suggestion_index > suggestion_count {
+            return Err(format!(
+                "mapped accept suggestion must be between 1 and {}",
+                suggestion_count.max(1)
+            ));
+        }
+        let Some(type_key) = parts.next() else {
+            return Err("mapped accept needs a type key after the suggestion number".to_string());
+        };
+        let note = rest
+            .splitn(3, char::is_whitespace)
+            .nth(2)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(ToString::to_string);
+        return Ok(ReviewAction::AcceptSuggestionWithType {
+            suggestion_index: suggestion_index - 1,
+            mapped_entity_type_key: type_key.to_string(),
+            note,
+        });
+    }
     if let Ok(index) = trimmed.parse::<usize>() {
         if index == 0 || index > suggestion_count {
             return Err(format!(
@@ -327,7 +469,7 @@ fn parse_review_action(input: &str, suggestion_count: usize) -> Result<ReviewAct
         }
         return Ok(ReviewAction::AcceptSuggestion(index - 1));
     }
-    Err("enter a suggestion number, `n`, `s`, or `q`".to_string())
+    Err("enter a suggestion number, `m ...`, `t ...`, `a ...`, `n`, `s`, or `q`".to_string())
 }
 
 fn load_review_candidates(
@@ -910,6 +1052,35 @@ mod tests {
         assert_eq!(parse_review_action("n", 0).unwrap(), ReviewAction::Reject);
         assert_eq!(parse_review_action("s", 0).unwrap(), ReviewAction::Skip);
         assert_eq!(parse_review_action("q", 0).unwrap(), ReviewAction::Quit);
+    }
+
+    #[test]
+    fn parse_review_action_supports_mapped_accept_and_type_only() {
+        assert_eq!(
+            parse_review_action("m 2 herolab.pathfinder.feat keep PF1 type", 3).unwrap(),
+            ReviewAction::AcceptSuggestionWithType {
+                suggestion_index: 1,
+                mapped_entity_type_key: "herolab.pathfinder.feat".to_string(),
+                note: Some("keep PF1 type".to_string()),
+            }
+        );
+        assert_eq!(
+            parse_review_action("t herolab.pathfinder.feat type-only", 0).unwrap(),
+            ReviewAction::TypeOnly {
+                mapped_entity_type_key: "herolab.pathfinder.feat".to_string(),
+                note: Some("type-only".to_string()),
+            }
+        );
+    }
+
+    #[test]
+    fn parse_review_action_supports_ambiguity_note() {
+        assert_eq!(
+            parse_review_action("a same name but source mismatch", 0).unwrap(),
+            ReviewAction::Ambiguous {
+                note: "same name but source mismatch".to_string(),
+            }
+        );
     }
 
     #[test]
