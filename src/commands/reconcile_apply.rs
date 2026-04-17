@@ -427,6 +427,7 @@ mod tests {
                 id: entity_type_id,
                 key: "herolab.pathfinder.feat".to_string(),
                 name: "HeroLab Feat (Pathfinder)".to_string(),
+                game_system: Some("Pathfinder".to_string()),
                 parent: None,
                 fields: vec![FieldDef {
                     key: "thing_id".to_string(),
@@ -439,8 +440,6 @@ mod tests {
                 relationships: Vec::new(),
                 external_ids: Vec::new(),
                 provenance: None,
-                descriptive_fields: Default::default(),
-                mechanical_fields: Default::default(),
             }],
             entities: vec![Entity {
                 id: entity_id,
